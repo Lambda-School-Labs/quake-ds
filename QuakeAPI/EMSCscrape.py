@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import re
 import time
-from DBQueries import *
+from .DBQueries import *
 
 
 CREATE_EMSC = '''CREATE TABLE EMSC
@@ -22,6 +22,37 @@ def setup_EMSC(pages):
     fill_db(pages)
     curs.close()
     CONN.commit()
+
+def get_last_day():
+    url = 'https://www.emsc-csem.org/Earthquake/?view='
+    page_num = 2
+    today = True
+    page_insert = ""
+    while(today):
+        page = requests.get(url+str(page_num), timeout=5)
+        page_soup = BeautifulSoup(page.text, 'html.parser')
+        table = page_soup.find('tbody')
+        rows = table.find_all('tr')
+        for row in rows:
+            try:
+                cells = row.find_all('td')
+                time = pd.to_datetime(row.find(class_="tabev6")
+                                      .find('a').text)
+                lat = float(cells[4].text) if cells[5].text.strip(
+                    '\xa0') == 'N' else -float(cells[4].text)
+                lon = float(cells[6].text) if cells[7].text.strip(
+                    '\xa0') == 'E' else -float(cells[6].text)
+                mag = float(cells[10].text)
+                place = re.sub("'", "''", cells[11].text.strip('\xa0'))
+                row_insert = f"('{place}', '{time}', {lat}, {lon}, {mag}), "
+                page_insert += row_insert
+                page_num += 1
+                print(row_insert)
+            except:
+                today = False
+                break
+
+
 
 
 def get_table(i):
