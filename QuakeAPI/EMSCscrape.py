@@ -17,24 +17,25 @@ CREATE_EMSC = '''CREATE TABLE EMSC
 
 def setup_EMSC(pages):
     curs = CONN.cursor()
-    curs.execute('DROP TABLE EMSC')
+    curs.execute('DROP TABLE IF EXISTS EMSC')
     curs.execute(CREATE_EMSC)
     fill_db(pages)
     curs.close()
     CONN.commit()
 
 def get_last_day():
+    '''collects the last day of earthquakes'''
     url = 'https://www.emsc-csem.org/Earthquake/?view='
     page_num = 2
     today = True
-    page_insert = ""
+    page_insert = 'INSERT INTO EMSC (place, time, lat, lon, mag) VALUES '
     while(today):
         page = requests.get(url+str(page_num), timeout=5)
         page_soup = BeautifulSoup(page.text, 'html.parser')
         table = page_soup.find('tbody')
         rows = table.find_all('tr')
         for row in rows:
-            try:
+            if row['class'][0] != 'autour':
                 cells = row.find_all('td')
                 time = pd.to_datetime(row.find(class_="tabev6")
                                       .find('a').text)
@@ -46,16 +47,16 @@ def get_last_day():
                 place = re.sub("'", "''", cells[11].text.strip('\xa0'))
                 row_insert = f"('{place}', '{time}', {lat}, {lon}, {mag}), "
                 page_insert += row_insert
-                page_num += 1
-                print(row_insert)
-            except:
+            else:
                 today = False
                 break
-
+        page_num += 1
+    return page_insert[:-2]+';'
 
 
 
 def get_table(i):
+    '''scrapes page i from the web'''
     url = 'https://www.emsc-csem.org/Earthquake/?view='+str(i)
     try:
         page = requests.get(url, timeout=5)
@@ -90,6 +91,7 @@ def get_table(i):
 
 
 def fill_db(pages):
+    '''gets pages up to the value passed in for pages'''
     curs = CONN.cursor()
     for i in range(1, pages+1):
         print(i)
