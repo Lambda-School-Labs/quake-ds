@@ -11,6 +11,8 @@ import numpy as np
 import datetime
 from app import app
 
+SOURCES = ['USGS', 'EMSC']
+
 column1 = dbc.Col(
     [
         dcc.Markdown(
@@ -91,16 +93,49 @@ def update_output(value, mag, source):
 
 
 def dual_source(value, mag):
-    df = pd.DataFrame()
-    for source in ['USGS', 'EMSC']:
-        if value == 'Quake':
-            pass
-        else:
+    if value == 'Quake':
+        return dual_last(mag)
+    else:
+        df = pd.DataFrame()
+        for source in SOURCES:
             api_url = f'https://quake-ds-staging.herokuapp.com/last/{source}/{value}/{float(mag)}'
             data = requests.get(api_url)
             if data.json()['num_quakes'] != 0:
                 df = df.append(data.json()['message'])
-    print(df)
+    if df.shape[0] > 0:
+        title = f'Quakes over {mag} from Both USGS and EMSC in the last {value.strip("/")}'
+        df['color'] = df['Oceanic'].apply(lambda x: 'yellow' if x != x else 'blue')
+        data, layout = loaded_fig(df)
+    else:
+        title = f'No Quakes over {mag} from either USGS or EMSC in the last {value.strip("/")}'
+        data, layout = empty_fig()
+
+    fig = go.Figure(data=data, layout=layout)
+    fig.update_layout(mapbox_style='stamen-terrain', height=700, title=title)
+    return dcc.Graph(figure=fig)
+
+
+def dual_last(mag):
+    quakes = []
+    for i, source in enumerate(SOURCES):
+        api_url = f'https://quake-ds-staging.herokuapp.com/lastQuake/{source}/{float(mag)}'
+        data = requests.get(api_url)
+        if data.json()['num_quakes'] > 0:
+            quakes.append(data.json()['message'])
+
+    if len(quakes) > 0:
+        title = f'Last Quake over {mag}'
+        data = quakes[0] if quakes[0]['time'] > quakes[1]['time'] else quakes[1]
+        df = pd.DataFrame(data, index=[0])
+        df['color'] = df['Oceanic'].apply(lambda x: 'yellow' if x != x else 'blue')
+        data, layout = loaded_fig(df)
+    else:
+        title = f'No Quakes Over {mag} in either USGS or EMSC'
+        data, layout = empty_fig()
+
+    fig = go.Figure(data=data, layout=layout)
+    fig.update_layout(mapbox_style='stamen-terrain', height=700, title=title)
+    return dcc.Graph(figure=fig)
 
 
 def single_source(value, mag, source):
@@ -112,6 +147,7 @@ def single_source(value, mag, source):
     if data.json()['num_quakes'] != 0:
         df = pd.DataFrame(data.json()['message']) if value != 'Quake' else \
             pd.DataFrame(data.json()['message'], index=[0])
+        df['color'] = 'blue' if source == 'USGS' else 'yellow'
         data, layout = loaded_fig(df)
         if value == 'Quake':
             title = f'Last Quake over {mag} in {source}'
@@ -139,9 +175,10 @@ def loaded_fig(df):
             lon=df['lon'],
             mode='markers',
             marker=go.scattermapbox.Marker(
-                size=df['mag'] + 9
+                size=df['mag'] + 9,
+                color=df['color'],
             ),
-            #text=df[['place', 'time','mag']],
+
             text=[f"""place: {x['place']}<br>UTC time: {datetime.datetime.fromtimestamp(x['time']/1000.0)}<br>mag: {x['mag']}"""
                   for _, x in df.iterrows()],
             hoverinfo='text'
