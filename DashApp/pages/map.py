@@ -33,6 +33,7 @@ column1 = dbc.Col(
                 options=[
                     {'label': 'USGS', 'value': 'USGS'},
                     {'label': 'EMSC', 'value': 'EMSC'},
+                    {'label': 'BOTH', 'value': 'BOTH'}
                 ],
                 value='USGS'
             ),
@@ -81,12 +82,34 @@ def display_min_mag(mag_num):
      dash.dependencies.Input('magnitude', 'value'),
      dash.dependencies.Input('source', 'value')])
 def update_output(value, mag, source):
+    if source != 'BOTH':
+        print('running with one source')
+        return single_source(value, mag, source)
+    else:
+        print('running with two sources')
+        return dual_source(value, mag)
+
+
+def dual_source(value, mag):
+    df = pd.DataFrame()
+    for source in ['USGS', 'EMSC']:
+        if value == 'Quake':
+            pass
+        else:
+            api_url = f'https://quake-ds-staging.herokuapp.com/last/{source}/{value}/{float(mag)}'
+            data = requests.get(api_url)
+            if data.json()['num_quakes'] != 0:
+                df = df.append(data.json()['message'])
+    print(df)
+
+
+def single_source(value, mag, source):
     if value == 'Quake':
         api_url = f'https://quake-ds-staging.herokuapp.com/last{value}/{source}/{float(mag)}'
     else:
         api_url = f'https://quake-ds-staging.herokuapp.com/last/{source}/{value}/{float(mag)}'
     data = requests.get(api_url)
-    if type(data.json()['message']) == type({1: 'a'}) or type(data.json()['message']) == type([1, 2, 3]) and len(data.json()['message']) >= 1:
+    if data.json()['num_quakes'] != 0:
         df = pd.DataFrame(data.json()['message']) if value != 'Quake' else \
             pd.DataFrame(data.json()['message'], index=[0])
         data, layout = loaded_fig(df)
