@@ -6,6 +6,8 @@ from .api_funcs import *
 def create_app():
     app = Flask(__name__)
 
+    source_message = 'Please select either USGS or EMSC as source'
+
     @app.route('/')
     def home():
         return jsonify({'status_code': 200,
@@ -23,7 +25,7 @@ def create_app():
         # check to make sure that source is valid
         if source.upper() not in ['USGS', 'EMSC']:
             return jsonify({'status_code': 400,
-                            'message': 'Please select either USGS or EMSC as source'})
+                            'message': source_message})
         curs = CONN.cursor()
         response = curs.execute(f'''
             SELECT * FROM {source}
@@ -60,10 +62,11 @@ def create_app():
         # check that source is a valid input
         if source.upper() not in ['USGS', 'EMSC']:
             return jsonify({'status_code': 400,
-                            'message': 'Please select either USGS or EMSC as source'})
+                            'message': source_message})
         message = get_last_quakes(get_now(), source, time, mag)
         message = message if len(message) != 0 else \
-            f'no quakes above {mag} in {source.upper()} in the last {time.lower()}'
+            f'no quakes above {mag} in ' + \
+            f'{source.upper()} in the last {time.lower()}'
         return jsonify({'status_code': 200,
                         'message': message})
 
@@ -72,21 +75,28 @@ def create_app():
         response = query_one('SELECT * FROM USGS where time=1582252014390')
         return jsonify(response)
 
-    @app.route('/history/<lat>,<lon>,<dist>')
-    def history(lat, lon, dist):
+    @app.route('/history/<source>/<lat>,<lon>,<dist>')
+    def history(source, lat, lon, dist):
         '''Start at coordinates (lat, lon) find the diagonal coordinates
         with distance (dist) and find earthquakes within that square range'''
 
+        # check that source is a valid input
+        if source.upper() not in ['USGS', 'EMSC']:
+            return jsonify({'status_code': 400,
+                            'message': source_message})
         CONN = connect()
+
+        # Covert lat, lon and dist inputs to floats
         lat = float(lat)
         lon = float(lon)
         dist = float(dist)
+
+        # Get corners from lat and lon
         coordinates = hist(lat, lon, dist)
         lonA = coordinates['lonA']
         latA = coordinates['latA']
         lonB = coordinates['lonB']
         latB = coordinates['latB']
-        print(coordinates)
 
         if latA < lat:
             latA = 90.0
@@ -100,23 +110,23 @@ def create_app():
         if lonB > 180:
             lonB = lonB - 360
             longitude_check = f'(Longitude > {lonA} AND Longitude < {lonB})'
-        
-        print(latA, latB, lonA, lonB)
-        print('check', longitude_check)
 
+        # Query to get earthquakes within lat lon range
         history_query = f'''
-        SELECT * FROM USGS
+        SELECT * FROM {source}
         WHERE (Latitude BETWEEN {latB} AND {latA})
         AND {longitude_check};
         '''
-
-        print('query', history_query)
 
         curs = CONN.cursor()
         curs.execute(history_query)
         history = curs.fetchall()
         CONN.close()
 
-        return jsonify({'status_code': 200, 'message': history})
+        quakes = []
+        for quake in history:
+            quakes.append(prep_response(quake, source))
+
+        return jsonify({'status_code': 200, 'message': quakes})
 
     return app
