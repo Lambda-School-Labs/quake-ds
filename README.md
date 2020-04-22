@@ -28,9 +28,9 @@ You can find the project at [Quake Production API](https://quake-ds-production.h
 ## Project Overview
 
 
-1️⃣ [Trello Board](https://trello.com/b/5WH9iB9n/labspt7-quake)
+[Trello Board](https://trello.com/b/5WH9iB9n/labspt7-quake)
 
-1️⃣ [Product Canvas](https://www.notion.so/User-Research-8cd64de109404266b2537457a426738d)
+[Product Canvas](https://www.notion.so/User-Research-8cd64de109404266b2537457a426738d)
 
 There are several routes to get out information about earthquakes:
 
