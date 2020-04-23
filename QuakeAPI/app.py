@@ -130,6 +130,10 @@ def create_app():
         for quake in history:
             quakes.append(prep_response(quake, source))
 
-        return jsonify({'status_code': 200, 'message': quakes, 'num_quakes': num_quakes})
+        return jsonify({'status_code': 200,
+                        'message': quakes,
+                        'num_quakes': num_quakes,
+                        'boundingA': [latA, lonA],
+                        'boundingB': [latB, lonB]})
 
     return app
