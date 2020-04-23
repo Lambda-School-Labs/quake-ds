@@ -37,9 +37,10 @@ def create_app():
         curs.close()
         CONN.commit()
         CONN.close()
+        num_quakes = 1 if quake is not None else 0
         response = prep_response(quake, source) if quake is not None \
             else f'No quakes of magnitude {mag} or higher in {source.upper()}'
-        return jsonify({'status_code': 200, 'message': response})
+        return jsonify({'status_code': 200, 'message': response, 'num_quakes': num_quakes})
 
     @app.route('/last/<source>/<time>/<float:mag>/')
     @app.route('/last/<source>/<time>/<int:mag>/')
@@ -64,11 +65,12 @@ def create_app():
             return jsonify({'status_code': 400,
                             'message': source_message})
         message = get_last_quakes(get_now(), source, time, mag)
+        num_quakes = len(message)
         message = message if len(message) != 0 else \
             f'no quakes above {mag} in ' + \
             f'{source.upper()} in the last {time.lower()}'
         return jsonify({'status_code': 200,
-                        'message': message})
+                        'message': message, 'num_quakes': num_quakes})
 
     @app.route('/test')
     def testRoute():
@@ -123,10 +125,11 @@ def create_app():
         history = curs.fetchall()
         CONN.close()
 
+        num_quakes = len(history)
         quakes = []
         for quake in history:
             quakes.append(prep_response(quake, source))
 
-        return jsonify({'status_code': 200, 'message': quakes})
+        return jsonify({'status_code': 200, 'message': quakes, 'num_quakes': num_quakes})
 
     return app
